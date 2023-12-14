@@ -29,15 +29,15 @@ class Conv2D(object):
         self.if_bias      = bias
 
         if const_ker:
-            self.weight = nn.Parameter(torch.tensor([[[[1.0, 2.0, 3.0],
-                                                       [2.0, 3.0, 4.0],
-                                                       [3.0, 4.0, 5.0]]]]))
+            self.weight = torch.tensor([[[[1.0, 2.0, 3.0],
+                                          [2.0, 3.0, 4.0],
+                                          [3.0, 4.0, 5.0]]]])
         else:
-            self.weight = nn.Parameter(torch.empty((out_channels, in_channels, kernel_size, kernel_size)), requires_grad=False)
+            self.weight = torch.empty((out_channels, in_channels, kernel_size, kernel_size))
             init.kaiming_normal_(self.weight, a=math.sqrt(5))
         
         if self.if_bias:
-            self.bias   = nn.Parameter(torch.empty(out_channels), requires_grad=False)
+            self.bias   = torch.empty(out_channels)
             fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
             if fan_in != 0:
                 bound = 1 / math.sqrt(fan_in)
@@ -54,7 +54,6 @@ class Conv2D(object):
     
     def nn_backward_conv2d_func(self, input: Tensor, weight: Tensor):
         return F.conv2d(input=input, weight=weight, bias=None, stride=self.stride, padding=self.padding)
-    
     
     def forward(self, input: Tensor) -> Tensor:
         self.input_tensor = input
