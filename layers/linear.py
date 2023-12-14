@@ -55,9 +55,9 @@ if __name__ == '__main__':
     #                         [2.0, 3.0, 4.0, 5.0],
     #                         [3.0, 4.0, 5.0, 6.0],
     #                         [4.0, 5.0, 6.0, 7.0]]]])
-    input = torch.rand((2, 2, 4, 4))
+    input = torch.rand((20, 32, 2, 2))
 
-    linear = Linear(input.shape, 32, 2, True)
+    linear = Linear(input.shape, 128, 2, True)
     
     out = linear.forward(input)
     eta = linear.gradient(out)

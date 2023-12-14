@@ -15,7 +15,6 @@ class MaxPooling(object):
     
     def forward(self, x):
         out = torch.zeros(self.out_shape)
-        print(out.shape)
         
         for b_idx in range(self.batch_size):
             for c_idx in range(self.out_channel):

@@ -80,21 +80,21 @@ class Conv2D(object):
 
         return next_eta
     
-    def backward(self, alpha = 0.00001, decay = 0.0004):
+    def backward(self, alpha = 0.00001, decay = 0.00001):
         self.weight = self.weight * (1 - decay) - alpha * self.weight_gradient
-        self.weight_gradient = torch.zeros_like((self.weight))
+        self.weight_gradient = torch.zeros(self.weight.shape)
         if self.if_bias:
             self.bias = self.bias * (1 - decay) - alpha * self.bias_gradient
-            self.bias_gradient = torch.zeros_like((self.bias))
+            self.bias_gradient = torch.zeros(self.bias.shape)
 
 if __name__ == "__main__":
     # input = torch.tensor([[[[1.0, 2.0, 3.0, 4.0],
     #                         [2.0, 3.0, 4.0, 5.0],
     #                         [3.0, 4.0, 5.0, 6.0],
     #                         [4.0, 5.0, 6.0, 7.0]]]])
-    input = torch.rand((2, 2, 4, 4))
+    input = torch.rand((2, 2, 5, 5))
 
-    conv = Conv2D(in_channels=2, out_channels=3, kernel_size=3, input_shape=4, stride=1, padding=0, batchsize=2, bias=True, const_ker=False)
+    conv = Conv2D(in_channels=2, out_channels=3, kernel_size=3, input_shape=5, stride=1, padding=0, batchsize=2, bias=True, const_ker=False)
 
     output = conv.forward(input)
     label = output + 1
