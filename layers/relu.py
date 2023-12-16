@@ -1,15 +1,16 @@
 import torch
+from torch import Tensor
 
 class Relu(object):
-    def __init__(self, shape):
-        self.eta = torch.zeros(shape)
-        self.x = torch.zeros(shape)
+    def __init__(self, shape, device='cpu') -> None:
+        self.eta = torch.zeros(shape, requires_grad=False).to(device)
+        self.x = torch.zeros(shape, requires_grad=False).to(device)
     
-    def forward(self, x):
+    def forward(self, x) -> Tensor:
         self.x = x
         return torch.maximum(x, torch.tensor(0))
     
-    def gradient(self, eta):
+    def gradient(self, eta) -> Tensor:
         self.eta = eta
         self.eta[self.x < 0] = 0
         return self.eta

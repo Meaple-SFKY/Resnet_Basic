@@ -2,19 +2,21 @@ import torch
 import math
 
 class MaxPooling(object):
-    def __init__(self, shape, ksize=2, stride=2):
+    def __init__(self, shape, ksize=2, stride=2, device='cpu'):
         self.input_shape = shape
         self.ksize = ksize
         self.stride = stride
+        self.device = device
         self.batch_size = shape[0]
         self.out_channel = shape[1]
-        self.max_index = torch.zeros(shape)
+        self.max_index = torch.zeros(shape, requires_grad=False).to(self.device)
         self.pad_shape = (0, (shape[3] - ksize) % self.stride, 0, (shape[2] - ksize) % self.stride)
         self.pad = torch.nn.ZeroPad2d(padding=self.pad_shape)
         self.out_shape = [self.batch_size, self.out_channel, math.floor((shape[2] - ksize) / self.stride) + 1, math.floor((shape[3] - ksize) / self.stride) + 1]
+        self.out = torch.zeros(self.out_shape, requires_grad=False).to(self.device)
     
     def forward(self, x):
-        out = torch.zeros(self.out_shape)
+        torch.zero_(self.out)
         
         for b_idx in range(self.batch_size):
             for c_idx in range(self.out_channel):
@@ -24,10 +26,10 @@ class MaxPooling(object):
                         start_w = w_idx * self.stride
                         end_h = start_h + self.ksize
                         end_w = start_w + self.ksize
-                        out[b_idx, c_idx, h_idx, w_idx] = torch.max(x[b_idx, c_idx, start_h:end_h, start_w:end_w])
+                        self.out[b_idx, c_idx, h_idx, w_idx] = torch.max(x[b_idx, c_idx, start_h:end_h, start_w:end_w])
                         max_index = torch.argmax(x[b_idx, c_idx, start_h:end_h, start_w:end_w])
                         self.max_index[b_idx, c_idx, math.floor(start_h + max_index / self.ksize), math.floor(start_w + max_index % self.ksize)] = torch.tensor(1)
-        return out
+        return self.out
     
     def gradient(self, eta):
         mid_out = self.pad(torch.repeat_interleave(torch.repeat_interleave(eta, self.stride, 2), self.stride, 3))

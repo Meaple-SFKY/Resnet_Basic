@@ -17,7 +17,8 @@ class Conv2D(object):
                  padding:      int = 0,
                  batchsize:    int = 1,
                  bias:        bool = False,
-                 const_ker:   bool = False
+                 const_ker:   bool = False,
+                 device:       str = 'cpu'
                  ) -> None:
         self.in_channels  = in_channels
         self.out_channels = out_channels
@@ -27,17 +28,18 @@ class Conv2D(object):
         self.padding      = padding
         self.batchsize    = batchsize
         self.if_bias      = bias
+        self.device       = device
 
         if const_ker:
             self.weight = torch.tensor([[[[1.0, 2.0, 3.0],
                                           [2.0, 3.0, 4.0],
                                           [3.0, 4.0, 5.0]]]])
         else:
-            self.weight = torch.empty((out_channels, in_channels, kernel_size, kernel_size))
+            self.weight = torch.empty((out_channels, in_channels, kernel_size, kernel_size), requires_grad=False).to(self.device)
             init.kaiming_normal_(self.weight, a=math.sqrt(5))
         
         if self.if_bias:
-            self.bias   = torch.empty(out_channels)
+            self.bias   = torch.empty(out_channels, requires_grad=False).to(self.device)
             fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
             if fan_in != 0:
                 bound = 1 / math.sqrt(fan_in)
@@ -45,9 +47,11 @@ class Conv2D(object):
         else:
             self.bias = None
         
-        self.eta = torch.zeros((self.batchsize, self.out_channels, int(2 * self.padding + self.input_shape - self.kernel_size + 1), int(2 * self.padding + self.input_shape - self.kernel_size + 1)))
-        self.weight_gradient = torch.zeros_like(self.weight)
-        self.bias_gradient = torch.zeros_like(self.bias) if self.bias is not None else None
+        self.eta = torch.zeros((self.batchsize, self.out_channels, int(2 * self.padding + self.input_shape - self.kernel_size + 1), int(2 * self.padding + self.input_shape - self.kernel_size + 1)), requires_grad=False)
+        self.weight_gradient = torch.zeros(self.weight.shape, requires_grad=False).to(self.device)
+        self.sub_weight_gradient = torch.zeros(self.weight.shape, requires_grad=False).to(self.device)
+        if self.if_bias:
+            self.bias_gradient = torch.zeros(self.bias.shape, requires_grad=False).to(self.device)
 
     def nn_forward_conv2d_func(self, input: Tensor, weight: Tensor):
         return F.conv2d(input=input, weight=weight, bias=self.bias, stride=self.stride, padding=self.padding)
@@ -57,19 +61,20 @@ class Conv2D(object):
     
     def forward(self, input: Tensor) -> Tensor:
         self.input_tensor = input
-        return self.nn_forward_conv2d_func(input, self.weight)
+        out = self.nn_forward_conv2d_func(input, self.weight)
+        return out
     
     def gradient(self, eta: Tensor) -> Tensor:
         self.eta = eta
         for b_idx in range(self.batchsize):
-            sub_weight_gradient = torch.zeros_like(self.weight)
+            torch.zero_(self.sub_weight_gradient)
             for o_idx in range(self.out_channels):
                 sub_eta = eta[b_idx][o_idx].reshape(1, 1, eta.shape[2], eta.shape[3])
                 for i_idx in range(self.in_channels):
                     sub_input = self.input_tensor[b_idx][i_idx].reshape(1, 1, self.input_shape, self.input_shape)
-                    tmp_out = F.conv2d(sub_input, sub_eta).reshape(sub_weight_gradient.shape[2], sub_weight_gradient.shape[3])
-                    sub_weight_gradient[o_idx][i_idx] = tmp_out
-            self.weight_gradient += sub_weight_gradient
+                    tmp_out = F.conv2d(sub_input, sub_eta).reshape(self.sub_weight_gradient.shape[2], self.sub_weight_gradient.shape[3])
+                    self.sub_weight_gradient[o_idx][i_idx] = tmp_out
+            self.weight_gradient += self.sub_weight_gradient
             if self.if_bias:
                 self.bias_gradient += eta[b_idx].sum(dim=(1, 2))
         
@@ -80,12 +85,12 @@ class Conv2D(object):
 
         return next_eta
     
-    def backward(self, alpha = 0.00001, decay = 0.00001):
+    def backward(self, alpha = 0.000001, decay = 0.00001) -> None:
         self.weight = self.weight * (1 - decay) - alpha * self.weight_gradient
-        self.weight_gradient = torch.zeros(self.weight.shape)
+        torch.zero_(self.weight_gradient)
         if self.if_bias:
             self.bias = self.bias * (1 - decay) - alpha * self.bias_gradient
-            self.bias_gradient = torch.zeros(self.bias.shape)
+            torch.zero_(self.bias_gradient)
 
 if __name__ == "__main__":
     # input = torch.tensor([[[[1.0, 2.0, 3.0, 4.0],
